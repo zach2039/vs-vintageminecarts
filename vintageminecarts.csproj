@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<AssemblyTitle>VintageMinecarts</AssemblyTitle>
+		<Authors>Zach2039</Authors>
+		<Version>0.0.1</Version>
+		<TargetFramework>net461</TargetFramework>
+	</PropertyGroup>
+	
+	<ItemGroup>
+		<Reference Include="VintagestoryAPI">
+			<HintPath>$(VINTAGE_STORY)/VintagestoryAPI.dll</HintPath>
+			<Private>false</Private>
+		</Reference>
+		<Reference Include="VintagestoryLib">
+			<HintPath>$(VINTAGE_STORY)/VintagestoryLib.dll</HintPath>
+			<Private>false</Private>
+		</Reference>
+		<Reference Include="0Harmony">
+			<HintPath>$(VINTAGE_STORY)/Lib/0Harmony.dll</HintPath>
+			<Private>False</Private>
+		</Reference>
+		<Reference Include="OpenTK">
+			<HintPath>$(VINTAGE_STORY)/Lib/OpenTK.dll</HintPath>
+			<Private>false</Private>
+		</Reference>
+		<PackageReference Include="YamlDotNet" Version="12.0.2" />
+	</ItemGroup>
+	
+	<ItemGroup Condition="'$(Configuration)' == 'Release'">
+		<None Include="LICENSE" CopyToOutputDirectory="PreserveNewest" />
+		<None Include="resources/**">
+			<Link>%(RecursiveDir)%(Filename)%(Extension)</Link>
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+	</ItemGroup>
+	
+	<Target Name="Package" AfterTargets="PostBuildEvent" Condition="'$(Configuration)' == 'Release'">
+		<ZipDirectory DestinationFile="bin/$(TargetName)_v$(Version).zip" SourceDirectory="$(TargetDir)" Overwrite="true" />
+	</Target>
+</Project>
