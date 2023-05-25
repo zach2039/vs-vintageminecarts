@@ -7,6 +7,14 @@
 	</PropertyGroup>
 	
 	<ItemGroup>
+		<Reference Include="System" />
+  		<Reference Include="System.Core" />
+  		<Reference Include="System.Xml.Linq" />
+  		<Reference Include="System.Data.DataSetExtensions" />
+  		<Reference Include="Microsoft.CSharp" />
+  		<Reference Include="System.Data" />
+  		<Reference Include="System.Net.Http" />
+  		<Reference Include="System.Xml" />
 		<Reference Include="VintagestoryAPI">
 			<HintPath>$(VINTAGE_STORY)/VintagestoryAPI.dll</HintPath>
 			<Private>false</Private>
@@ -15,6 +23,18 @@
 			<HintPath>$(VINTAGE_STORY)/VintagestoryLib.dll</HintPath>
 			<Private>false</Private>
 		</Reference>
+		<Reference Include="VSSurvivalMod">
+		    <HintPath>$(VINTAGE_STORY)/Mods/VSSurvivalMod.dll</HintPath>
+			<Private>False</Private>
+    	</Reference>
+		<Reference Include="VSEssentials">
+		    <HintPath>$(VINTAGE_STORY)/Mods/VSEssentials.dll</HintPath>
+			<Private>False</Private>
+    	</Reference>
+		<Reference Include="VSCreativeMod">
+		    <HintPath>$(VINTAGE_STORY)/Mods/VSCreativeMod.dll</HintPath>
+			<Private>False</Private>
+    	</Reference>
 		<Reference Include="0Harmony">
 			<HintPath>$(VINTAGE_STORY)/Lib/0Harmony.dll</HintPath>
 			<Private>False</Private>
