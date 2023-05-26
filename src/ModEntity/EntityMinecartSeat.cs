@@ -6,7 +6,7 @@ using Vintagestory.API.Datastructures;
 using Vintagestory.API.MathTools;
 using Vintagestory.GameContent;
 
-namespace VintageMinecarts.ModEntities
+namespace VintageMinecarts.ModEntity
 {
     public class EntityMinecartSeat : IMountable
     {
@@ -107,6 +107,17 @@ namespace VintageMinecarts.ModEntities
             tree.SetInt("seatNumber", this.SeatNumber);
         }
 
+        public static IMountable GetMountable(IWorldAccessor world, TreeAttribute tree)
+        {
+            Entity entity = world.GetEntityById(tree.GetLong("entityIdMinecart"));
+            if (entity is EntityMinecart entityMinecart)
+            {
+                return entityMinecart.Seat;
+            }
+
+            return null;
+        }
+
         public EntityMinecart EntityMinecartInstance { get; set; }
 
         public EntityAgent Passenger { get; set; } = null;
@@ -160,7 +171,7 @@ namespace VintageMinecarts.ModEntities
 
         public bool CanControl => false;
 
-        public Vintagestory.API.Common.Entities.Entity MountedBy => throw new System.NotImplementedException();
+        public Vintagestory.API.Common.Entities.Entity MountedBy => Passenger;
 
         public IMountableSupplier MountSupplier => EntityMinecartInstance;
 

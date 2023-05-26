@@ -3,9 +3,9 @@
   "modid": "vintageminecarts",
   "name": "Vintage Minecarts",
   "authors": [ "Zach2039" ],
+  "contributors": [ "Rythillian" ],
   "description": "Add minecarts and associated items to the game.",
   "version": "0.0.1",
-  "side":  "Both",
   "dependency": {
     "game": "1.18.5"
   }

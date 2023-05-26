@@ -43,6 +43,10 @@
 			<HintPath>$(VINTAGE_STORY)/Lib/OpenTK.dll</HintPath>
 			<Private>false</Private>
 		</Reference>
+		<Reference Include="Newtonsoft.Json">
+			<HintPath>$(VINTAGE_STORY)/Lib/Newtonsoft.Json.dll</HintPath>
+			<Private>false</Private>
+		</Reference>
 		<PackageReference Include="YamlDotNet" Version="12.0.2" />
 	</ItemGroup>
 	

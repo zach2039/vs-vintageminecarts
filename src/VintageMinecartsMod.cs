@@ -2,7 +2,11 @@ using System;
 using HarmonyLib;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
+using Vintagestory.API.Server;
 using Vintagestory.API.Util;
+
+using VintageMinecarts.ModBlock;
+using VintageMinecarts.ModEntity;
 
 namespace VintageMinecarts
 {
@@ -13,33 +17,47 @@ namespace VintageMinecarts
         public static VintageMinecartsMod Instance { get; private set; }
 
         public ICoreClientAPI CApi { get; private set; }
-        public bool Debug { get; private set; }
+        public ICoreServerAPI SApi { get; private set; }
+        public ICoreAPI Api { get; private set; }
 
-        public override bool ShouldLoad(EnumAppSide forSide)
-        {
-            return forSide == EnumAppSide.Client;
-        }
+        public bool Debug { get; private set; }
 
         public override void StartClientSide(ICoreClientAPI api)
         {
-            PatchGame();
+             CApi = api;
+
             RegisterHotkeys();
+        }
+
+        public override void StartServerSide(ICoreServerAPI api)
+        {
+            SApi = api;
+
+            PatchGame();
         }
 
         public override void StartPre(ICoreAPI api)
         {
-            if (!(api is ICoreClientAPI clientApi)) return;
-
             SetConfigDefaults();
 
             Instance = this;
-            CApi = clientApi;
-            
+           
             Debug = Environment.GetEnvironmentVariable("VINTAGEMINECARTS_DEBUG").ToBool();
             if (Debug)
             {
                 Mod.Logger.Event("Debugging activated");
             }
+        }
+
+        public override void Start(ICoreAPI api)
+        {
+            base.Start(api);
+
+            Api = api;
+
+            VintageMinecartsMod.Instance.Api.RegisterBlockClass("BlockMinecartRails", typeof(BlockMinecartRails));
+            VintageMinecartsMod.Instance.Api.RegisterEntity("EntityMinecart", typeof(EntityMinecart));
+            VintageMinecartsMod.Instance.Api.RegisterMountable("EntityMinecartSeat", EntityMinecartSeat.GetMountable);
         }
 
         private void RegisterHotkeys()
@@ -68,7 +86,7 @@ namespace VintageMinecarts
 
         public override void Dispose()
         {
-            if (CApi == null) return;
+            if (Api == null) return;
 
             _harmony?.UnpatchAll();
 

@@ -1,4 +1,6 @@
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using VintageMinecarts.ModUtil;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
@@ -7,32 +9,33 @@ using Vintagestory.API.Config;
 using Vintagestory.API.MathTools;
 using Vintagestory.GameContent;
 
-namespace VintageMinecarts.ModEntities
+namespace VintageMinecarts.ModEntity
 {
     public class EntityMinecart : Entity, IRenderer, IMountableSupplier
     {
         public EntityMinecart()
         {
-            this.MinecartSeat = new EntityMinecartSeat(this, 0, this.MountOffsets[0]);
+            this.Seat = new EntityMinecartSeat(this, 0, this.MountOffsets[0]);
         }
 
         public override void Initialize(EntityProperties properties, ICoreAPI api, long InChunkIndex3d)
         {
             base.Initialize(properties, api, InChunkIndex3d);
 
-            if (VintageMinecartsMod.Instance.CApi != null)
+            capi = api as ICoreClientAPI;
+            if (capi != null)
             {
-                VintageMinecartsMod.Instance.CApi.Event.RegisterRenderer(this, EnumRenderStage.Before, "minecartsim");
+                capi.Event.RegisterRenderer(this, EnumRenderStage.Before, "minecartsim");
                 //modsysSounds = api.ModLoader.GetModSystem<ModSystemBoatingSound>();
             }
 
             // The mounted entity will try to mount as well, but at that time, the boat might not have been loaded, so we'll try mounting on both ends. 
-            if (this.MinecartSeat.PassengerEntityIdForInit != 0 && this.MinecartSeat.Passenger == null)
+            if (this.Seat.PassengerEntityIdForInit != 0 && this.Seat.Passenger == null)
             {
-                var entity = api.World.GetEntityById(this.MinecartSeat.PassengerEntityIdForInit) as EntityAgent;
+                var entity = api.World.GetEntityById(this.Seat.PassengerEntityIdForInit) as EntityAgent;
                 if (entity != null)
                 {
-                    entity.TryMount(this.MinecartSeat);
+                    entity.TryMount(this.Seat);
                 }
             }
         }
@@ -47,7 +50,7 @@ namespace VintageMinecarts.ModEntities
             return (block is BlockRails);
         }
 
-        protected virtual EnumRailDirection GetRailDirection(BlockRails blockRails, BlockFacing minecartMotionDirection)
+        protected virtual EnumRailDirection GetRailDirection(BlockRails blockRails)
         {
             if (blockRails.LastCodePart().Contains("curved_es")) return EnumRailDirection.EAST_TO_SOUTH;
             if (blockRails.LastCodePart().Contains("curved_sw")) return EnumRailDirection.SOUTH_TO_WEST;
@@ -55,8 +58,10 @@ namespace VintageMinecarts.ModEntities
             if (blockRails.LastCodePart().Contains("curved_ne")) return EnumRailDirection.NORTH_TO_EAST;
             if (blockRails.LastCodePart().Contains("flat_ns")) return EnumRailDirection.NORTH_TO_SOUTH;
             if (blockRails.LastCodePart().Contains("flat_we")) return EnumRailDirection.WEST_TO_EAST;
-            if (blockRails.LastCodePart().Contains("raised_ns")) return (minecartMotionDirection == BlockFacing.NORTH) ? EnumRailDirection.UPWARDS_NORTH : EnumRailDirection.UPWARDS_SOUTH;
-            if (blockRails.LastCodePart().Contains("raised_we")) return (minecartMotionDirection == BlockFacing.WEST) ? EnumRailDirection.UPWARDS_WEST : EnumRailDirection.UPWARDS_EAST;
+            if (blockRails.LastCodePart().Contains("raised_sn")) return EnumRailDirection.UPWARDS_NORTH;
+            if (blockRails.LastCodePart().Contains("raised_ns")) return EnumRailDirection.UPWARDS_SOUTH;
+            if (blockRails.LastCodePart().Contains("raised_we")) return EnumRailDirection.UPWARDS_EAST;
+            if (blockRails.LastCodePart().Contains("raised_ew")) return EnumRailDirection.UPWARDS_WEST;
 
             // Uh oh
             throw new ArgumentException("BlockRails variant does not have a valid rail direction.");
@@ -74,7 +79,8 @@ namespace VintageMinecarts.ModEntities
             );
 
             // Apply effects of gravity on speed if on raised track
-            switch (GetRailDirection(blockRails, minecartHorizontalDirection))
+            EnumRailDirection currentDirection = GetRailDirection(blockRails);
+            switch (currentDirection)
             {
                 case EnumRailDirection.UPWARDS_NORTH:
                     this.SidedPos.Motion.Add(0.0, 0.0, 0.008);
@@ -90,7 +96,50 @@ namespace VintageMinecarts.ModEntities
                     break;
             }
 
-            // Determin
+            // Determine movement from current rail position and movement direction, but only if cart is actively moving
+            if (this.SidedPos.Motion.Length() <= 0.00001f)
+            {
+                return;
+            }
+
+            KeyValuePair<Vec3i, Vec3i> exitFromTo;
+            if (_exitMap.TryGetValue(currentDirection, out exitFromTo)) 
+            {
+                Vec3i fromPos = exitFromTo.Key;
+                Vec3i toPos = exitFromTo.Value;
+
+                // Yaw depending on from and to locations
+                BlockFacing newDirection = BlockFacing.FromNormal(toPos);
+                switch (newDirection.Index)
+                {
+                    case BlockFacing.indexNORTH:
+                        this.SidedPos.Yaw = 0f;
+                        break;
+                    case BlockFacing.indexSOUTH:
+                        this.SidedPos.Yaw = GameMath.DEG2RAD * 180f;
+                        break;
+                    case BlockFacing.indexEAST:
+                        this.SidedPos.Yaw = GameMath.DEG2RAD * 270f;
+                        break;
+                    case BlockFacing.indexWEST:
+                        this.SidedPos.Yaw = GameMath.DEG2RAD * 90f;
+                        break;
+                    default:
+                        break;
+                }
+
+                // Roll depending on from and to locations
+                bool movingUpward = fromPos.Y < toPos.Y;
+                bool movingDownward = fromPos.Y > toPos.Y;
+                if (movingUpward)
+                {
+                    this.SidedPos.Roll = GameMath.DEG2RAD * 45f;
+                }
+                else if (movingDownward)
+                {
+                    this.SidedPos.Roll = GameMath.DEG2RAD * -45f;
+                }
+            }
         }
 
         protected virtual void MoveFreely(float deltaTime)
@@ -108,7 +157,7 @@ namespace VintageMinecarts.ModEntities
 
             // Try get block below entity
             BlockPos currentBlockPos = this.SidedPos.AsBlockPos;
-            Block currentBlock = Api.World.BlockAccessor.GetBlock(currentBlockPos);
+            Block currentBlock = VintageMinecartsMod.Instance.Api.World.BlockAccessor.GetBlock(currentBlockPos);
 
             if (IsRailBlock(currentBlock))
             {
@@ -146,25 +195,44 @@ namespace VintageMinecarts.ModEntities
 
         public Vec3f GetMountOffset(Entity entity)
         {
-            throw new System.NotImplementedException();
+            if (this.Seat.Passenger == entity)
+            {
+                return this.Seat.MountOffset;
+            }
+            return null;
         }
 
         public bool IsMountedBy(Entity entity)
         {
-            throw new System.NotImplementedException();
+            if (Seat.Passenger == entity) return true;
+
+            return false;
         }
 
         public double RenderOrder => 0;
 
         public int RenderRange => 999;
         
-        public EntityMinecartSeat MinecartSeat;        
+        public EntityMinecartSeat Seat;        
 
         public Vec3f Rotation { get; set; } = new Vec3f();       
 
         public Vec3f[] MountOffsets { get; set; } = new Vec3f[] { new Vec3f(0.0f, 0.2f, 0) };
 
-        public IMountable[] MountPoints => throw new System.NotImplementedException();
+        public IMountable[] MountPoints => new IMountable[] { Seat };
+
+        private Dictionary<EnumRailDirection, KeyValuePair<Vec3i, Vec3i>> _exitMap { get; } = new Dictionary<EnumRailDirection, KeyValuePair<Vec3i, Vec3i>>() {
+            { EnumRailDirection.EAST_TO_SOUTH, new KeyValuePair<Vec3i, Vec3i>(BlockFacing.EAST.Normali, BlockFacing.SOUTH.Normali) },
+            { EnumRailDirection.SOUTH_TO_WEST, new KeyValuePair<Vec3i, Vec3i>(BlockFacing.SOUTH.Normali, BlockFacing.WEST.Normali) },
+            { EnumRailDirection.WEST_TO_NORTH, new KeyValuePair<Vec3i, Vec3i>(BlockFacing.WEST.Normali, BlockFacing.NORTH.Normali) },
+            { EnumRailDirection.NORTH_TO_EAST, new KeyValuePair<Vec3i, Vec3i>(BlockFacing.NORTH.Normali, BlockFacing.EAST.Normali) },
+            { EnumRailDirection.NORTH_TO_SOUTH, new KeyValuePair<Vec3i, Vec3i>(BlockFacing.NORTH.Normali, BlockFacing.SOUTH.Normali) },
+            { EnumRailDirection.WEST_TO_EAST, new KeyValuePair<Vec3i, Vec3i>(BlockFacing.WEST.Normali, BlockFacing.EAST.Normali) },
+            { EnumRailDirection.UPWARDS_NORTH, new KeyValuePair<Vec3i, Vec3i>(BlockFacing.NORTH.Normali, BlockFacing.SOUTH.Normali.Add(0, -1, 0)) },
+            { EnumRailDirection.UPWARDS_SOUTH, new KeyValuePair<Vec3i, Vec3i>(BlockFacing.NORTH.Normali.Add(0, -1, 0), BlockFacing.SOUTH.Normali) },
+            { EnumRailDirection.UPWARDS_WEST, new KeyValuePair<Vec3i, Vec3i>(BlockFacing.WEST.Normali, BlockFacing.EAST.Normali.Add(0, -1, 0)) },
+            { EnumRailDirection.UPWARDS_EAST, new KeyValuePair<Vec3i, Vec3i>(BlockFacing.WEST.Normali.Add(0, -1, 0), BlockFacing.EAST.Normali) },
+        };
 
         public override bool ApplyGravity => true;      
 
@@ -177,5 +245,7 @@ namespace VintageMinecarts.ModEntities
         public virtual float SpeedMultiplier => 40f;
 
         public virtual double ForwardSpeed { get; set; } = 0.0d;
+
+        ICoreClientAPI capi;
     }
 }

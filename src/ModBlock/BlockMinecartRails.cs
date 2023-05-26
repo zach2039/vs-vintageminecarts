@@ -2,14 +2,10 @@ using Vintagestory.API.Common;
 using Vintagestory.API.MathTools;
 using Vintagestory.GameContent;
 
-namespace VintageMinecarts.ModBlocks
+namespace VintageMinecarts.ModBlock
 {
     public class BlockMinecartRails : BlockRails
     {
-        public BlockMinecartRails() : base() 
-        {
-        }
-
         protected bool PlaceIfSuitable(IWorldAccessor world, IPlayer byPlayer, Block block, BlockPos pos)
 		{
 			string failureCode = "";
@@ -18,7 +14,7 @@ namespace VintageMinecarts.ModBlocks
 				Position = pos,
 				Face = BlockFacing.UP
 			};
-            
+
 			if (block.CanPlaceBlock(world, byPlayer, blockSel, ref failureCode))
 			{
 				block.DoPlaceBlock(world, byPlayer, blockSel, null);
@@ -144,7 +140,14 @@ namespace VintageMinecarts.ModBlocks
                     // Place ramp piece if rail is found above
                     if (facingOffsetAboveBlock is BlockRails)
                     {
-                        blockToPlace = world.GetBlock(base.CodeWithParts("raised_ns"));
+						if (targetFacing == BlockFacing.NORTH)
+						{
+							blockToPlace = world.GetBlock(base.CodeWithParts("raised_sn"));
+						}
+						else
+						{
+							blockToPlace = world.GetBlock(base.CodeWithParts("raised_ns"));
+						}
                     }
                     else
                     {
@@ -156,7 +159,14 @@ namespace VintageMinecarts.ModBlocks
                     // Place ramp piece if rail is found above
                     if (facingOffsetAboveBlock is BlockRails)
                     {
-                        blockToPlace = world.GetBlock(base.CodeWithParts("raised_we"));
+						if (targetFacing == BlockFacing.EAST)
+						{
+							blockToPlace = world.GetBlock(base.CodeWithParts("raised_we"));
+						}
+						else
+						{
+							blockToPlace = world.GetBlock(base.CodeWithParts("raised_ew"));
+						}
                     }
                     else
                     {
@@ -166,6 +176,11 @@ namespace VintageMinecarts.ModBlocks
 			}
 			blockToPlace.DoPlaceBlock(world, byPlayer, blockSel, itemstack);
 			return true;
+		}
+
+		public override ItemStack OnPickBlock(IWorldAccessor world, BlockPos pos)
+		{
+			return new ItemStack(world.GetBlock(base.CodeWithParts("flat_ns")));
 		}
     }
 }
