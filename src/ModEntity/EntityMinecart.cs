@@ -22,8 +22,7 @@ namespace VintageMinecarts.ModEntity
         {
             base.Initialize(properties, api, InChunkIndex3d);
 
-            capi = api as ICoreClientAPI;
-            if (capi != null)
+            if (api is ICoreClientAPI capi)
             {
                 capi.Event.RegisterRenderer(this, EnumRenderStage.Before, "minecartsim");
                 //modsysSounds = api.ModLoader.GetModSystem<ModSystemBoatingSound>();
@@ -69,7 +68,7 @@ namespace VintageMinecarts.ModEntity
 
         protected virtual void MoveAlongRail(BlockPos railBlockPos, BlockRails blockRails, float deltaTime)
         {            
-            this.PositionBeforeFalling = this.SidedPos.XYZ;
+            //this.PositionBeforeFalling = this.SidedPos.XYZ;
 
             // Get direction from motion
             BlockFacing minecartHorizontalDirection = BlockFacing.FromVector(
@@ -157,7 +156,7 @@ namespace VintageMinecarts.ModEntity
 
             // Try get block below entity
             BlockPos currentBlockPos = this.SidedPos.AsBlockPos;
-            Block currentBlock = VintageMinecartsMod.Instance.Api.World.BlockAccessor.GetBlock(currentBlockPos);
+            Block currentBlock = this.World.BlockAccessor.GetBlock(currentBlockPos);
 
             if (IsRailBlock(currentBlock))
             {
@@ -175,7 +174,7 @@ namespace VintageMinecarts.ModEntity
         {
             if (VintageMinecartsMod.Instance.CApi.IsGamePaused) return;
 
-            UpdateMinecartAngleAndMotion(deltaTime);
+            //UpdateMinecartAngleAndMotion(deltaTime);
         }
 
         public override void OnGameTick(float deltaTime)
@@ -245,7 +244,5 @@ namespace VintageMinecarts.ModEntity
         public virtual float SpeedMultiplier => 40f;
 
         public virtual double ForwardSpeed { get; set; } = 0.0d;
-
-        ICoreClientAPI capi;
     }
 }

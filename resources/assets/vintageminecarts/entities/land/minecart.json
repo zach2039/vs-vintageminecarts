@@ -1,51 +1,56 @@
 {
-	"code": "minecart",
-	"class": "EntityMinecart",
-	"variantgroups": [
-        { "code": "metal", "states": [ "iron", "meteoriciron", "steel" ] }
+	"code":"minecart",
+	"class":"EntityMinecart",
+	"variantgroups":[
+		{
+			"code":"metal",
+			"states":[
+				"iron"
+			]
+		}
 	],
-	"hitboxSize": {
-		"x": 1,
-		"y": 1,
-		"z": 1
+	"hitboxSize":{
+		"x":1,
+		"y":1,
+		"z":1
 	},
-	"client": {
-		"size": 1,
-		"renderer": "Shape",
-		"shapeByType": {
-			"*": { "base": "entity/land/minecart" }
-		},
-		"texturesByType": {
-			"*": {
-				"fire-yellow": "game:block/fire-yellow",
-				"iron3": "game:block/metal/ingot/{metal}",
-				"iron2": "game:block/metal/plate/{metal}",
-				"iron": "game:block/metal/tarnished/{metal}",
-				"oak": "game:block/wood/oak"
+	"client":{
+		"size":1.2,
+		"renderer":"Shape",
+		"shapeByType":{
+			"*":{
+				"base":"entity/land/minecart"
 			}
 		},
-		"behaviors": [
+		"behaviors":[
 			{
-				"code": "passivephysics",
-				"groundDragFactor": 1,
-				"airDragFallingFactor": 0.5,
-				"gravityFactor": 1.0
+				"code":"passivephysics",
+				"groundDragFactor":1,
+				"airDragFallingFactor":0.5,
+				"gravityFactor":1.0
 			},
-			{ "code": "interpolateposition" },
-			{ "code": "floatupwhenstuck" }
+			{
+				"code":"interpolateposition"
+			},
+			{
+				"code":"floatupwhenstuck"
+			}
 		]
 	},
-	"server": {
-		"behaviors": [
+	"server":{
+		"behaviors":[
 			{
-				"code": "passivephysics",
-				"groundDragFactor": 1,
-				"airDragFallingFactor": 0.5,
-				"gravityFactor": 1.0
+				"code":"passivephysics",
+				"groundDragFactor":1,
+				"airDragFallingFactor":0.5,
+				"gravityFactor":1.0
 			},
-			{ "code": "floatupwhenstuck" }
+			{
+				"code":"floatupwhenstuck"
+			}
 		]
 	},
-	"sounds": {
+	"sounds":{
+		
 	}
 }
