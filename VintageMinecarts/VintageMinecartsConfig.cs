@@ -1,5 +1,5 @@
 
-namespace beehivekiln
+namespace VintageMinecarts
 {
     public class VintageMinecartsConfig 
     {

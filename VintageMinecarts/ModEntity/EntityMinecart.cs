@@ -21,7 +21,7 @@ namespace VintageMinecarts.ModEntity
         public override void Initialize(EntityProperties properties, ICoreAPI api, long InChunkIndex3d)
         {
             base.Initialize(properties, api, InChunkIndex3d);
-
+			this.capi = (api as ICoreClientAPI);
             if (api is ICoreClientAPI capi)
             {
                 capi.Event.RegisterRenderer(this, EnumRenderStage.Before, "minecartsim");
@@ -146,7 +146,7 @@ namespace VintageMinecarts.ModEntity
 
         }
 
-        protected virtual void UpdateMinecartAngleAndMotion(float baseDeltaTime)
+        protected virtual void updateMinecartAngleAndMotion(float baseDeltaTime)
         {
             // Ignore lag spikes
             float deltaTime = Math.Min(0.5f, baseDeltaTime);
@@ -172,9 +172,12 @@ namespace VintageMinecarts.ModEntity
 
         public virtual void OnRenderFrame(float deltaTime, EnumRenderStage renderStage)
         {
-            if (VintageMinecartsMod.Instance.CApi.IsGamePaused) return;
+            if (this.capi.IsGamePaused)
+			{
+				return;
+			}
 
-            //UpdateMinecartAngleAndMotion(deltaTime);
+            this.UpdateMinecartAngleAndMotion(deltaTime);
         }
 
         public override void OnGameTick(float deltaTime)
@@ -244,5 +247,7 @@ namespace VintageMinecarts.ModEntity
         public virtual float SpeedMultiplier => 40f;
 
         public virtual double ForwardSpeed { get; set; } = 0.0d;
+
+        private ICoreClientAPI capi;
     }
 }
