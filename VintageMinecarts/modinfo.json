@@ -1,0 +1,13 @@
+{
+    "type": "code",
+    "modid": "vintageminecarts",
+    "name": "Vintage Minecarts",
+    "authors": [
+        "Zach2039"
+    ],
+    "description": "A Vintage Story mod that adds functioning minecarts and rails.",
+    "version": "1.0.0",
+    "dependencies": {
+        "game": "1.19.7"
+    }
+}
