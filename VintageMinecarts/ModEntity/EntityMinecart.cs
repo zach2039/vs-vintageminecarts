@@ -177,14 +177,14 @@ namespace VintageMinecarts.ModEntity
 				return;
 			}
 
-            this.UpdateMinecartAngleAndMotion(deltaTime);
+            this.updateMinecartAngleAndMotion(deltaTime);
         }
 
         public override void OnGameTick(float deltaTime)
         {
             if (World.Side == EnumAppSide.Server)
             {
-                UpdateMinecartAngleAndMotion(deltaTime);
+                this.updateMinecartAngleAndMotion(deltaTime);
             }
             
             base.OnGameTick(deltaTime);
