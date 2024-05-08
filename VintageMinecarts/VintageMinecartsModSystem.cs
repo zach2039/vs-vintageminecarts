@@ -7,6 +7,7 @@ using Vintagestory.API.Util;
 using VintageMinecarts.ModBlock;
 using VintageMinecarts.ModEntity;
 using VintageMinecarts.ModNetwork;
+using VintageMinecarts.ModItem;
 
 namespace VintageMinecarts
 {
@@ -36,19 +37,24 @@ namespace VintageMinecarts
                 api.StoreModConfig(VintageMinecartsConfig.Loaded, cfgFileName);
             }
 
-            base.StartPre(api);
+            //base.StartPre(api);
         }
 
         public override void Start(ICoreAPI api)
         {
-            this.api = api;
             base.Start(api);
 
-            api.Logger.Notification("Loaded Vintage Minecarts!");
-
+            this.api = api;
+            
             api.RegisterBlockClass("BlockMinecartRails", typeof(BlockMinecartRails));
+
+            api.RegisterItemClass("ItemMinecart", typeof(ItemMinecart));
+
             api.RegisterEntity("EntityMinecart", typeof(EntityMinecart));
+
             api.RegisterMountable("EntityMinecartSeat", EntityMinecartSeat.GetMountable);
+
+            api.Logger.Notification("Loaded Vintage Minecarts!");
         }
 
         private void OnPlayerJoin(IServerPlayer player)
@@ -83,6 +89,8 @@ namespace VintageMinecarts
         
         public override void Dispose()
         {
+            base.Dispose();
+
             if (this.api is ICoreServerAPI sapi)
             {
                 sapi.Event.PlayerJoin -= this.OnPlayerJoin;

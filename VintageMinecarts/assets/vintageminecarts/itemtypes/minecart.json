@@ -1,20 +1,8 @@
 {
 	"code":"minecart",
-	"class":"ItemBoat",
-	"variantgroups":[
-		{
-			"code":"metal",
-			"states":[
-				"iron",
-				"meteoriciron",
-				"steel"
-			]
-		}
-	],
-	"shapeByType":{
-		"*":{
-			"base":"entity/land/minecart"
-		}
+	"class":"ItemMinecart",
+	"shape":{
+		"base":"entity/land/minecart"
 	},
 	"heldTpIdleAnimation":"holdunderarm",
 	"maxstacksize":1,
@@ -82,7 +70,7 @@
 			"y":0,
 			"z":0
 		},
-		"scale":6.3
+		"scale":5.3
 	},
 	"tpHandTransform":{
 		"translation":{

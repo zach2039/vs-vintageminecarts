@@ -1,26 +1,16 @@
 {
 	"code":"minecart",
 	"class":"EntityMinecart",
-	"variantgroups":[
-		{
-			"code":"metal",
-			"states":[
-				"iron"
-			]
-		}
-	],
 	"hitboxSize":{
-		"x":1,
-		"y":1,
-		"z":1
+		"x":1.0,
+		"y":1.0,
+		"z":1.0
 	},
 	"client":{
 		"size":1.2,
 		"renderer":"Shape",
-		"shapeByType":{
-			"*":{
-				"base":"entity/land/minecart"
-			}
+		"shape":{
+			"base":"entity/land/minecart"
 		},
 		"behaviors":[
 			{

@@ -5,6 +5,7 @@
     "authors": [
         "Zach2039"
     ],
+    "contributors": [ "Rythillian" ],
     "description": "A Vintage Story mod that adds functioning minecarts and rails.",
     "version": "1.0.0",
     "dependencies": {

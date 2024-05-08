@@ -1,6 +1,8 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.ComponentModel;
+using System.IO;
 using VintageMinecarts.ModUtil;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
@@ -11,243 +13,284 @@ using Vintagestory.GameContent;
 
 namespace VintageMinecarts.ModEntity
 {
-    public class EntityMinecart : Entity, IRenderer, IMountableSupplier
-    {
-        public EntityMinecart()
-        {
-            this.Seat = new EntityMinecartSeat(this, 0, this.MountOffsets[0]);
-        }
-
-        public override void Initialize(EntityProperties properties, ICoreAPI api, long InChunkIndex3d)
-        {
-            base.Initialize(properties, api, InChunkIndex3d);
-			this.capi = (api as ICoreClientAPI);
-            if (api is ICoreClientAPI capi)
+	public class EntityMinecart : Entity, IRenderer, IDisposable, IMountableSupplier
+	{
+		public EntityMinecart()
+		{
+			this.AnimManager = new AnimationManager();
+            this.Seat = new EntityMinecartSeat(this, SeatMountOffset)
             {
-                capi.Event.RegisterRenderer(this, EnumRenderStage.Before, "minecartsim");
-                //modsysSounds = api.ModLoader.GetModSystem<ModSystemBoatingSound>();
-            }
-
-            // The mounted entity will try to mount as well, but at that time, the boat might not have been loaded, so we'll try mounting on both ends. 
-            if (this.Seat.PassengerEntityIdForInit != 0 && this.Seat.Passenger == null)
-            {
-                var entity = api.World.GetEntityById(this.Seat.PassengerEntityIdForInit) as EntityAgent;
-                if (entity != null)
-                {
-                    entity.TryMount(this.Seat);
-                }
-            }
+                CanControl = true
+            };
         }
 
-        public virtual float SeatsToMotion(float dt)
-        {
-            return 0.0f;
-        }
+		public override bool CanCollect(Entity byEntity)
+		{
+			return false;
+		}
 
-        protected virtual bool IsRailBlock(Block block)
-        {
-            return (block is BlockRails);
-        }
+		public override void Initialize(EntityProperties properties, ICoreAPI api, long InChunkIndex3d)
+		{
+			base.Initialize(properties, api, InChunkIndex3d);
 
-        protected virtual EnumRailDirection GetRailDirection(BlockRails blockRails)
-        {
-            if (blockRails.LastCodePart().Contains("curved_es")) return EnumRailDirection.EAST_TO_SOUTH;
-            if (blockRails.LastCodePart().Contains("curved_sw")) return EnumRailDirection.SOUTH_TO_WEST;
-            if (blockRails.LastCodePart().Contains("curved_wn")) return EnumRailDirection.WEST_TO_NORTH;
-            if (blockRails.LastCodePart().Contains("curved_ne")) return EnumRailDirection.NORTH_TO_EAST;
-            if (blockRails.LastCodePart().Contains("flat_ns")) return EnumRailDirection.NORTH_TO_SOUTH;
-            if (blockRails.LastCodePart().Contains("flat_we")) return EnumRailDirection.WEST_TO_EAST;
-            if (blockRails.LastCodePart().Contains("raised_sn")) return EnumRailDirection.UPWARDS_NORTH;
-            if (blockRails.LastCodePart().Contains("raised_ns")) return EnumRailDirection.UPWARDS_SOUTH;
-            if (blockRails.LastCodePart().Contains("raised_we")) return EnumRailDirection.UPWARDS_EAST;
-            if (blockRails.LastCodePart().Contains("raised_ew")) return EnumRailDirection.UPWARDS_WEST;
+			this.cApi = (api as ICoreClientAPI);
+			
+			if (cApi != null)
+			{
+				this.cApi.Event.RegisterRenderer(this, EnumRenderStage.Before, "minecartsim");
+				this.modsysSounds = api.ModLoader.GetModSystem<ModSystemMinecartSound>(true);
+			}
 
-            // Uh oh
-            throw new ArgumentException("BlockRails variant does not have a valid rail direction.");
-        }
+			if (this.Seat.PassengerEntityIdForInit != 0L && this.Seat.Passenger == null)
+			{
+				EntityAgent entityAgent = api.World.GetEntityById(this.Seat.PassengerEntityIdForInit) as EntityAgent;
+				if (entityAgent != null)
+				{
+					entityAgent.TryMount(this.Seat);
+				}
+			}
 
-        protected virtual void MoveAlongRail(BlockPos railBlockPos, BlockRails blockRails, float deltaTime)
-        {            
-            //this.PositionBeforeFalling = this.SidedPos.XYZ;
+			if (api.Side == EnumAppSide.Server)
+			{
+				this.AnimManager = AnimationCache.InitManager(api, this.AnimManager, this, properties.Client.LoadedShapeForEntity, null, new string[]
+				{
+					"head"
+				});
+				this.AnimManager.OnServerTick(0f);
+			}
+			else
+			{
+				this.AnimManager.Init(api, this);
+			}
+		}
 
-            // Get direction from motion
-            BlockFacing minecartHorizontalDirection = BlockFacing.FromVector(
-                this.SidedPos.GetViewVector().X,
-                0,
-                this.SidedPos.GetViewVector().Z
-            );
+		public override void OnGameTick(float dt)
+		{
+			if (this.World.Side == EnumAppSide.Server)
+			{
+				this.updateMinecartAngleAndMotion(dt);
+			}
 
-            // Apply effects of gravity on speed if on raised track
-            EnumRailDirection currentDirection = GetRailDirection(blockRails);
-            switch (currentDirection)
-            {
-                case EnumRailDirection.UPWARDS_NORTH:
-                    this.SidedPos.Motion.Add(0.0, 0.0, 0.008);
-                    break;
-                case EnumRailDirection.UPWARDS_SOUTH:
-                    this.SidedPos.Motion.Add(0.0, 0.0, -0.008);
-                    break;
-                case EnumRailDirection.UPWARDS_EAST:
-                    this.SidedPos.Motion.Add(-0.008, 0.0, 0.0);
-                    break;
-                case EnumRailDirection.UPWARDS_WEST:
-                    this.SidedPos.Motion.Add(0.008, 0.0, 0.0);
-                    break;
-            }
+			base.OnGameTick(dt);
+		}
 
-            // Determine movement from current rail position and movement direction, but only if cart is actively moving
-            if (this.SidedPos.Motion.Length() <= 0.00001f)
-            {
-                return;
-            }
+		public Vec3f SeatMountOffset = new Vec3f(0f, 0.2f, 0f);
 
-            KeyValuePair<Vec3i, Vec3i> exitFromTo;
-            if (_exitMap.TryGetValue(currentDirection, out exitFromTo)) 
-            {
-                Vec3i fromPos = exitFromTo.Key;
-                Vec3i toPos = exitFromTo.Value;
+		public virtual Vec3f GetMountOffset(Entity entity)
+		{
+			if (this.Seat.Passenger == entity)
+			{
+				return this.Seat.MountOffset;
+			}
 
-                // Yaw depending on from and to locations
-                BlockFacing newDirection = BlockFacing.FromNormal(toPos);
-                switch (newDirection.Index)
-                {
-                    case BlockFacing.indexNORTH:
-                        this.SidedPos.Yaw = 0f;
-                        break;
-                    case BlockFacing.indexSOUTH:
-                        this.SidedPos.Yaw = GameMath.DEG2RAD * 180f;
-                        break;
-                    case BlockFacing.indexEAST:
-                        this.SidedPos.Yaw = GameMath.DEG2RAD * 270f;
-                        break;
-                    case BlockFacing.indexWEST:
-                        this.SidedPos.Yaw = GameMath.DEG2RAD * 90f;
-                        break;
-                    default:
-                        break;
-                }
+			return null;
+		}
 
-                // Roll depending on from and to locations
-                bool movingUpward = fromPos.Y < toPos.Y;
-                bool movingDownward = fromPos.Y > toPos.Y;
-                if (movingUpward)
-                {
-                    this.SidedPos.Roll = GameMath.DEG2RAD * 45f;
-                }
-                else if (movingDownward)
-                {
-                    this.SidedPos.Roll = GameMath.DEG2RAD * -45f;
-                }
-            }
-        }
+		public bool IsMountedBy(Entity entity)
+		{
+			if (this.Seat.Passenger == entity)
+			{
+				return true;
+			}
 
-        protected virtual void MoveFreely(float deltaTime)
-        {
+			return false;
+		}
 
-        }
+		public virtual bool IsEmpty()
+		{
+			return this.Seat.Passenger == null;
+		}
 
-        protected virtual void updateMinecartAngleAndMotion(float baseDeltaTime)
-        {
-            // Ignore lag spikes
-            float deltaTime = Math.Min(0.5f, baseDeltaTime);
+		public override void ToBytes(BinaryWriter writer, bool forClient)
+		{
+			base.ToBytes(writer, forClient);
+			EntityAgent passenger = this.Seat.Passenger;
+			writer.Write((passenger != null) ? passenger.EntityId : 0L);
+		}
 
-            float step = GlobalConstants.PhysicsFrameTime;
-            float pilotMotion = SeatsToMotion(step);
+		public override void FromBytes(BinaryReader reader, bool fromServer)
+		{
+			base.FromBytes(reader, fromServer);
+			long entityId = reader.ReadInt64();
+			this.Seat.PassengerEntityIdForInit = entityId;
+		}
 
-            // Try get block below entity
-            BlockPos currentBlockPos = this.SidedPos.AsBlockPos;
-            Block currentBlock = this.World.BlockAccessor.GetBlock(currentBlockPos);
-
-            if (IsRailBlock(currentBlock))
-            {
-                // On rails, so movement will be locked to rails
-                this.MoveAlongRail(currentBlockPos, (BlockRails)currentBlock, deltaTime);
-            }              
-            else
-            {
-                // Off rails, so movement will be unconstrained
-                this.MoveFreely(deltaTime);
-            }       
-        }
-
-        public virtual void OnRenderFrame(float deltaTime, EnumRenderStage renderStage)
-        {
-            if (this.capi.IsGamePaused)
+		public override void OnInteract(EntityAgent byEntity, ItemSlot itemslot, Vec3d hitPosition, EnumInteractMode mode)
+		{
+			if (mode != EnumInteractMode.Interact)
 			{
 				return;
 			}
 
-            this.updateMinecartAngleAndMotion(deltaTime);
-        }
+			if (byEntity.Controls.Sneak && this.IsEmpty())
+			{
+				EntityAgent passenger = this.Seat.Passenger;
+				if (passenger != null)
+				{
+					passenger.TryUnmount();
+				}
+				
+				ItemStack stack = new ItemStack(this.World.GetItem(this.Code), 1);
+				if (!byEntity.TryGiveItemStack(stack))
+				{
+					this.World.SpawnItemEntity(stack, this.ServerPos.XYZ, null);
+				}
+				this.Die(EnumDespawnReason.Death, null);
+				return;
+			}
+			if (this.World.Side == EnumAppSide.Server)
+			{
+				if (byEntity.MountedOn == null && this.Seat.Passenger == null)
+				{
+					byEntity.TryMount(this.Seat);
+				}
+			}
+		}
 
-        public override void OnGameTick(float deltaTime)
-        {
-            if (World.Side == EnumAppSide.Server)
-            {
-                this.updateMinecartAngleAndMotion(deltaTime);
-            }
-            
-            base.OnGameTick(deltaTime);
-        }
+		public virtual Vec2d SeatsToMotion(float deltaTime)
+		{
+			double linearMotion = 0.0;
+			double angularMotion = 0.0;
+			double offRailStrength = 0.1f;
 
-        public void Dispose()
-        {
+			if (this.Seat.Passenger != null && this.Seat.CanControl)
+			{
+				EntityControls controls = this.Seat.controls;
+				if (controls.TriesToMove)
+				{
+					if (controls.Forward || controls.Backward)
+					{
+						float dir2 = (float)(controls.Forward ? 1 : -1);
+						if (Math.Abs(GameMath.AngleRadDistance(base.SidedPos.Yaw, this.Seat.Passenger.SidedPos.Yaw)) > 1.5707964f)
+						{
+							dir2 *= -1f;
+						}
+						linearMotion += (double)(offRailStrength * dir2 * deltaTime * 2f);
+					}
+				}
+			}
+			return new Vec2d(linearMotion, angularMotion);
+		}
 
-        }
+        protected virtual void updateMinecartAngleAndMotion(float deltaTime)
+		{
+			deltaTime = Math.Min(0.5f, deltaTime);
+			float step = GlobalConstants.PhysicsFrameTime;
 
-        public Vec3f GetMountOffset(Entity entity)
-        {
-            if (this.Seat.Passenger == entity)
-            {
-                return this.Seat.MountOffset;
-            }
-            return null;
-        }
+			EntityPos pos = base.SidedPos;
+			
+			// Handle collision with other entities
+			bool bumped = false;
+			if (this.Api.World.GetNearestEntity(this.Pos.XYZ, 0.5f, 0.5f, (e) => {return e != null && e.EntityId != this.EntityId && e.EntityId != this.Seat.Passenger?.EntityId;}) is Entity collidingEntity)
+			{
+				Vec3d posCart = pos.XYZ;
+				Vec3d posEnt = collidingEntity.SidedPos.XYZ;
+				Vec3d pushVec = posCart.SubCopy(posEnt).Normalize();
+				double force = 0.5d / (double)MathF.Min((float)0.1, (float)posCart.Sub(posEnt).Length());
+				pos.Motion += pushVec.Mul(force);
+				bumped = true;
+			}
 
-        public bool IsMountedBy(Entity entity)
-        {
-            if (Seat.Passenger == entity) return true;
+			// Handle seated control
+			Vec2d controlledMotion = this.SeatsToMotion(step);
+			this.ForwardSpeed += (controlledMotion.X * (double)this.SpeedMultiplier - this.ForwardSpeed) * (double)deltaTime;
+			this.AngularVelocity += (controlledMotion.Y * (double)this.SpeedMultiplier - this.AngularVelocity) * (double)deltaTime;
+			
+			if (this.ForwardSpeed != 0.0 || bumped)
+			{
+				Vec3d targetmotion = pos.GetViewVector().Mul((float)(-(float)this.ForwardSpeed)).ToVec3d();
+				pos.Motion.X = targetmotion.X;
+				pos.Motion.Z = targetmotion.Z;
+			}
+			if (this.AngularVelocity != 0.0 || bumped)
+			{
+				pos.Yaw += (float)this.AngularVelocity * deltaTime * 30f;
+			}
+		}
 
-            return false;
-        }
+		public void OnRenderFrame(float deltaTime, EnumRenderStage stage)
+		{
+			if (this.cApi.IsGamePaused)
+			{
+				return;
+			}
 
-        public double RenderOrder => 0;
+			this.updateMinecartAngleAndMotion(deltaTime);
 
-        public int RenderRange => 999;
-        
-        public EntityMinecartSeat Seat;        
+			if (base.Properties.Client.Renderer is EntityShapeRenderer esr)
+			{
+				esr.xangle = this.xangle;
+				esr.yangle = this.yangle;
+				esr.zangle = this.zangle;
+			}
+			
+			bool selfSitting = false;
+			selfSitting |= this.Seat.Passenger == this.cApi.World.Player.Entity;
 
-        public Vec3f Rotation { get; set; } = new Vec3f();       
+			EntityAgent passenger = this.Seat.Passenger;
+            EntityShapeRenderer pesr = null;
 
-        public Vec3f[] MountOffsets { get; set; } = new Vec3f[] { new Vec3f(0.0f, 0.2f, 0) };
+			if (passenger != null)
+			{
+				EntityProperties properties = passenger.Properties;
+				pesr = (properties?.Client.Renderer) as EntityShapeRenderer;
+			}
 
-        public IMountable[] MountPoints => new IMountable[] { Seat };
+			if (pesr != null)
+			{
+				pesr.xangle = this.xangle;
+				pesr.yangle = this.yangle;
+				pesr.zangle = this.zangle;
+			}
 
-        private Dictionary<EnumRailDirection, KeyValuePair<Vec3i, Vec3i>> _exitMap { get; } = new Dictionary<EnumRailDirection, KeyValuePair<Vec3i, Vec3i>>() {
-            { EnumRailDirection.EAST_TO_SOUTH, new KeyValuePair<Vec3i, Vec3i>(BlockFacing.EAST.Normali, BlockFacing.SOUTH.Normali) },
-            { EnumRailDirection.SOUTH_TO_WEST, new KeyValuePair<Vec3i, Vec3i>(BlockFacing.SOUTH.Normali, BlockFacing.WEST.Normali) },
-            { EnumRailDirection.WEST_TO_NORTH, new KeyValuePair<Vec3i, Vec3i>(BlockFacing.WEST.Normali, BlockFacing.NORTH.Normali) },
-            { EnumRailDirection.NORTH_TO_EAST, new KeyValuePair<Vec3i, Vec3i>(BlockFacing.NORTH.Normali, BlockFacing.EAST.Normali) },
-            { EnumRailDirection.NORTH_TO_SOUTH, new KeyValuePair<Vec3i, Vec3i>(BlockFacing.NORTH.Normali, BlockFacing.SOUTH.Normali) },
-            { EnumRailDirection.WEST_TO_EAST, new KeyValuePair<Vec3i, Vec3i>(BlockFacing.WEST.Normali, BlockFacing.EAST.Normali) },
-            { EnumRailDirection.UPWARDS_NORTH, new KeyValuePair<Vec3i, Vec3i>(BlockFacing.NORTH.Normali, BlockFacing.SOUTH.Normali.Add(0, -1, 0)) },
-            { EnumRailDirection.UPWARDS_SOUTH, new KeyValuePair<Vec3i, Vec3i>(BlockFacing.NORTH.Normali.Add(0, -1, 0), BlockFacing.SOUTH.Normali) },
-            { EnumRailDirection.UPWARDS_WEST, new KeyValuePair<Vec3i, Vec3i>(BlockFacing.WEST.Normali, BlockFacing.EAST.Normali.Add(0, -1, 0)) },
-            { EnumRailDirection.UPWARDS_EAST, new KeyValuePair<Vec3i, Vec3i>(BlockFacing.WEST.Normali.Add(0, -1, 0), BlockFacing.EAST.Normali) },
-        };
+			if (selfSitting)
+			{
+				this.modsysSounds.NowInMotion((float)this.Pos.Motion.Length());
+				return;
+			}
 
-        public override bool ApplyGravity => true;      
+			this.modsysSounds.NotMounted();
+		}
 
-        public override bool IsInteractable => true;
+		public void Dispose()
+		{
+			
+		}
 
-        public override float MaterialDensity => 7600;
+		public override bool ApplyGravity { get; } = true;
 
-        public override double SwimmingOffsetY => 0.45;    
+		public override bool IsInteractable { get; } = true;
 
-        public virtual float SpeedMultiplier => 40f;
+		public override float MaterialDensity { get; } = 1000f;
 
-        public virtual double ForwardSpeed { get; set; } = 0.0d;
+		public EntityMinecartSeat Seat;
 
-        private ICoreClientAPI capi;
-    }
+		public double RenderOrder => 0.0f;
+
+		public int RenderRange => 999;
+
+		public IMountable[] MountPoints => new IMountable[] { this.Seat }; 
+
+		public virtual float SpeedMultiplier
+		{
+			get
+			{
+				return 1f;
+			}
+		}
+
+		public double ForwardSpeed;
+
+		public double AngularVelocity;
+
+		public float xangle;
+
+		public float yangle;
+
+		public float zangle;
+
+		private ModSystemMinecartSound modsysSounds;
+
+		private ICoreClientAPI cApi;
+	}
 }
